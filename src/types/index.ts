@@ -28,6 +28,21 @@ export interface Movie {
   motif: 'sun' | 'rings' | 'grid' | 'waves' | 'eye' | 'road' | 'stars' | 'tower'
   status: 'now' | 'soon'
   releaseDate?: string
+  /** Метка «NEW» на карточке — премьера последних недель */
+  isNew?: boolean
+}
+
+export type Language = 'AZ' | 'RU' | 'EN' | 'TR'
+export type Format = '2D' | '3D' | 'IMAX' | 'Dolby Atmos'
+
+export interface Cinema {
+  id: string
+  name: string
+  mall: string
+  address: string
+  metro: string
+  phone: string
+  palette: [string, string]
 }
 
 export type SeatType = 'standard' | 'vip' | 'sofa'
@@ -43,18 +58,21 @@ export interface RowLayout {
 
 export interface Hall {
   id: string
+  cinemaId: string
   name: string
-  format: '2D' | '3D' | 'IMAX' | 'Dolby Atmos'
+  format: Format
   rows: RowLayout[]
 }
 
 export interface Session {
   id: string
   movieId: string
+  cinemaId: string
   hallId: string
   startsAt: string // ISO
-  format: Hall['format']
-  language: 'RU' | 'EN' | 'AZ'
+  format: Format
+  language: Language
+  subtitles?: Language
   prices: Record<SeatType, number>
 }
 
@@ -82,6 +100,8 @@ export interface Order {
   createdAt: string
   email: string
   name: string
+  phone?: string
+  method?: 'card' | 'club'
   tickets: Ticket[]
   total: number
   cardLast4: string

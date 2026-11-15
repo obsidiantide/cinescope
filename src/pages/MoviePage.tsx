@@ -1,21 +1,33 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { getMovie, listSessions } from '../api'
 import { useAsync } from '../lib/useAsync'
 import { Poster } from '../components/Poster'
-import { DateStrip } from '../components/DateStrip'
+import { FilterBar } from '../components/FilterBar'
+import { AgeBadge } from '../components/Badges'
+import { useFilters } from '../lib/filters'
+import { cinemas } from '../data/cinemas'
 import { SessionChip } from '../components/SessionChip'
-import { dateKey, duration } from '../lib/format'
+import { duration } from '../lib/format'
 import { halls } from '../data/halls'
 import { NotFound } from './NotFound'
 
 export function MoviePage() {
   const { id = '' } = useParams()
-  const [date, setDate] = useState(dateKey(new Date()))
+  const { date, cinemaId, language } = useFilters()
   const movie = useAsync(() => getMovie(id), [id])
-  const sessions = useAsync(() => listSessions({ movieId: id, date }), [id, date])
-  const byHall = useMemo(
-    () => halls.map((h) => ({ hall: h, list: (sessions.data ?? []).filter((s) => s.hallId === h.id) })).filter((x) => x.list.length),
+  const sessions = useAsync(() => listSessions({ movieId: id, date, cinemaId, language }), [id, date, cinemaId, language])
+  const byCinema = useMemo(
+    () =>
+      cinemas
+        .map((c) => ({
+          cinema: c,
+          halls: halls
+            .filter((h) => h.cinemaId === c.id)
+            .map((h) => ({ hall: h, list: (sessions.data ?? []).filter((s) => s.hallId === h.id) }))
+            .filter((x) => x.list.length),
+        }))
+        .filter((x) => x.halls.length),
     [sessions.data],
   )
 
@@ -30,7 +42,7 @@ export function MoviePage() {
         <Poster movie={m} className="movie-hero-poster" />
         <div className="movie-hero-info">
           <span className="eyebrow">
-            {m.ageRating} · {m.year} · {m.country}
+            <AgeBadge age={m.ageRating} /> {m.year} · {m.country}
           </span>
           <h1>{m.title}</h1>
           {m.originalTitle && <p className="muted">{m.originalTitle}</p>}
@@ -67,23 +79,33 @@ export function MoviePage() {
         <section className="container">
           <div className="section-head">
             <h2>Сеансы</h2>
-            <DateStrip value={date} onChange={setDate} />
           </div>
+          <FilterBar />
           {sessions.loading && !sessions.data ? (
             <div className="loader">Загрузка расписания…</div>
-          ) : byHall.length ? (
-            byHall.map(({ hall, list }) => (
-              <div key={hall.id} className="hall-block">
-                <h3>{hall.name}</h3>
-                <div className="sessions">
-                  {list.map((s) => (
-                    <SessionChip key={s.id} s={s} />
-                  ))}
+          ) : byCinema.length ? (
+            byCinema.map(({ cinema, halls: hs }) => (
+              <div key={cinema.id} className="cinema-block">
+                <div className="cinema-block-head">
+                  <h3>{cinema.name}</h3>
+                  <span className="muted small">
+                    {cinema.mall}, {cinema.address}
+                  </span>
                 </div>
+                {hs.map(({ hall, list }) => (
+                  <div key={hall.id} className="hall-row">
+                    <span className="hall-name">{hall.name}</span>
+                    <div className="sessions">
+                      {list.map((s) => (
+                        <SessionChip key={s.id} s={s} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             ))
           ) : (
-            <p className="muted">На эту дату сеансов нет — выберите другой день.</p>
+            <div className="empty-box">По выбранным фильтрам сеансов нет — выберите другой день, кинотеатр или язык.</div>
           )}
         </section>
       ) : (

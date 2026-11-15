@@ -33,7 +33,7 @@ export default function SeatsPage() {
 
   if (data.loading && !data.data) return <div className="loader">Загружаем зал…</div>
   if (!data.data) return <NotFound text="Сеанс не найден" />
-  const { session, movie, hall } = data.data
+  const { session, movie, hall, cinema } = data.data
   const occupied = occ.data ?? new Set<string>()
   const total = selected.reduce((sum, sid) => sum + session.prices[seatsById.get(sid)!.type], 0)
   const free = seatsById.size - occupied.size
@@ -50,7 +50,7 @@ export default function SeatsPage() {
             {dateLong(session.startsAt)}, {time(session.startsAt)}
           </b>
           <span>
-            {hall.name}
+            {cinema.name} · {hall.name}
             {hall.format !== session.format ? ` · ${session.format}` : ''} · {session.language} · {movie.ageRating}
           </span>
         </div>

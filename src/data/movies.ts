@@ -4,6 +4,7 @@ import type { Movie } from '../types'
 export const movies: Movie[] = [
   {
     id: 'orbit-9',
+    isNew: true,
     title: 'Орбита 9',
     originalTitle: 'Orbit Nine',
     tagline: 'До Земли — 400 километров. До помощи — вечность.',
@@ -59,6 +60,7 @@ export const movies: Movie[] = [
   },
   {
     id: 'city-of-lights',
+    isNew: true,
     title: 'Город огней',
     tagline: 'Каждый фонарь хранит одну историю.',
     description:
@@ -77,6 +79,7 @@ export const movies: Movie[] = [
   },
   {
     id: 'caspian-rally',
+    isNew: true,
     title: 'Ралли «Каспий»',
     tagline: '3000 километров. Одна попытка.',
     description:

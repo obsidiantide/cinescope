@@ -1,97 +1,111 @@
-import { useMemo, useState } from 'react'
+import type { Movie } from '../types'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listMovies, listSessions } from '../api'
 import { useAsync } from '../lib/useAsync'
+import { useFilters } from '../lib/filters'
 import { Poster } from '../components/Poster'
-import { DateStrip } from '../components/DateStrip'
-import { SessionChip } from '../components/SessionChip'
-import { dateKey, duration } from '../lib/format'
-import type { Genre } from '../types'
+import { FilterBar } from '../components/FilterBar'
+import { MovieCard } from '../components/MovieCard'
+import { AgeBadge } from '../components/Badges'
+import { duration } from '../lib/format'
 
 export function HomePage() {
-  const [date, setDate] = useState(dateKey(new Date()))
-  const [genre, setGenre] = useState<Genre | 'all'>('all')
-  const movies = useAsync(() => listMovies('now'), [])
-  const sessions = useAsync(() => listSessions({ date }), [date])
+  const { date, cinemaId, language, query } = useFilters()
+  const movies = useAsync(() => listMovies(), [])
+  const sessions = useAsync(() => listSessions({ date, cinemaId, language }), [date, cinemaId, language])
+  const now = (movies.data ?? []).filter((m) => m.status === 'now')
+  const soon = (movies.data ?? []).filter((m) => m.status === 'soon')
+  const featured = useMemo(() => now.filter((m) => m.isNew), [now])
 
-  const genres = useMemo(() => [...new Set(movies.data?.flatMap((m) => m.genres) ?? [])], [movies.data])
-  const featured = useMemo(() => movies.data && [...movies.data].sort((a, b) => b.rating - a.rating)[0], [movies.data])
-  const list = (movies.data ?? []).filter((m) => genre === 'all' || m.genres.includes(genre))
+  const list = now
+    .map((m) => ({ movie: m, sessions: (sessions.data ?? []).filter((s) => s.movieId === m.id) }))
+    .filter((x) => x.sessions.length)
 
   return (
     <>
-      {featured && (
-        <section className="hero" style={{ ['--c1' as string]: featured.palette[1], ['--c2' as string]: featured.palette[2] }}>
-          <div className="hero-bg" />
-          <div className="hero-content">
-            <span className="eyebrow">Сейчас в прокате · ★ {featured.rating}</span>
-            <h1>{featured.title}</h1>
-            <p className="tagline">{featured.tagline}</p>
-            <p className="muted">
-              {featured.genres.join(', ')} · {duration(featured.durationMin)} · {featured.ageRating}
-            </p>
-            <div className="hero-actions">
-              <Link className="btn primary" to={`/movie/${featured.id}`}>
-                Купить билет
-              </Link>
-              <a className="btn ghost" href="#afisha">
-                Вся афиша
-              </a>
-            </div>
-          </div>
-          <Poster movie={featured} className="hero-poster" />
-        </section>
-      )}
+      {featured.length > 0 && <HeroSlider items={featured} />}
 
-      <section id="afisha" className="container">
+      <section className="wrap section">
         <div className="section-head">
-          <h2>Афиша</h2>
-          <DateStrip value={date} onChange={setDate} />
+          <h2>Сейчас в кино</h2>
+          <Link to={`/schedule${query ? `?${query}` : ''}`} className="link-more">
+            Всё расписание
+          </Link>
         </div>
-        <div className="chips">
-          <button className={genre === 'all' ? 'chip active' : 'chip'} onClick={() => setGenre('all')}>
-            Все жанры
-          </button>
-          {genres.map((g) => (
-            <button key={g} className={genre === g ? 'chip active' : 'chip'} onClick={() => setGenre(g)}>
-              {g}
-            </button>
-          ))}
-        </div>
-
-        {movies.loading && !movies.data ? (
+        <FilterBar />
+        {(movies.loading && !movies.data) || (sessions.loading && !sessions.data) ? (
           <div className="loader">Загрузка афиши…</div>
-        ) : (
-          <div className="movie-list">
-            {list.map((m) => {
-              const ms = (sessions.data ?? []).filter((s) => s.movieId === m.id)
-              return (
-                <article key={m.id} className="movie-row">
-                  <Link to={`/movie/${m.id}`} className="movie-row-poster">
-                    <Poster movie={m} />
-                    <span className="age">{m.ageRating}</span>
-                  </Link>
-                  <div className="movie-row-body">
-                    <Link to={`/movie/${m.id}`}>
-                      <h3>{m.title}</h3>
-                    </Link>
-                    <p className="muted">
-                      {m.genres.join(', ')} · {duration(m.durationMin)} · {m.country}
-                    </p>
-                    <p className="desc">{m.description}</p>
-                    <div className="sessions">
-                      {ms.length ? ms.map((s) => <SessionChip key={s.id} s={s} />) : <span className="muted">На эту дату сеансов нет</span>}
-                    </div>
-                  </div>
-                  <div className="rating" title="Рейтинг зрителей">
-                    ★ {m.rating.toFixed(1)}
-                  </div>
-                </article>
-              )
-            })}
+        ) : list.length ? (
+          <div className="movie-grid">
+            {list.map((x) => (
+              <MovieCard key={x.movie.id} movie={x.movie} sessions={x.sessions} query={query} />
+            ))}
           </div>
+        ) : (
+          <div className="empty-box">По выбранным фильтрам сеансов нет. Попробуйте другой день, кинотеатр или язык.</div>
         )}
       </section>
+
+      {soon.length > 0 && (
+        <section className="wrap section">
+          <div className="section-head">
+            <h2>Скоро в кино</h2>
+            <Link to="/soon" className="link-more">
+              Все премьеры
+            </Link>
+          </div>
+          <div className="soon-row">
+            {soon.map((m) => (
+              <Link key={m.id} to={`/movie/${m.id}`} className="soon-card">
+                <Poster movie={m} />
+                <span className="soon-date">
+                  с {new Date(m.releaseDate!).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                </span>
+                <b>{m.title}</b>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </>
+  )
+}
+
+function HeroSlider({ items }: { items: Movie[] }) {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % items.length), 6000)
+    return () => clearInterval(t)
+  }, [items.length])
+  const m = items[i]
+  return (
+    <section className="hero" style={{ ['--c1' as string]: m.palette[1], ['--c2' as string]: m.palette[2] }}>
+      <div className="hero-bg" key={m.id} />
+      <div className="wrap hero-inner">
+        <div className="hero-content" key={m.id}>
+          <span className="eyebrow">Премьера · ★ {m.rating.toFixed(1)}</span>
+          <h1>{m.title}</h1>
+          <p className="tagline">{m.tagline}</p>
+          <p className="hero-meta">
+            <AgeBadge age={m.ageRating} /> {m.genres.join(', ')} · {duration(m.durationMin)}
+          </p>
+          <div className="hero-actions">
+            <Link className="btn primary" to={`/movie/${m.id}`}>
+              Купить билет
+            </Link>
+            <Link className="btn ghost-light" to={`/movie/${m.id}`}>
+              О фильме
+            </Link>
+          </div>
+          <div className="dots">
+            {items.map((x, k) => (
+              <button key={x.id} className={k === i ? 'active' : ''} onClick={() => setI(k)} aria-label={x.title} />
+            ))}
+          </div>
+        </div>
+        <Poster movie={m} className="hero-poster" />
+      </div>
+    </section>
   )
 }

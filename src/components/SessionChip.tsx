@@ -7,8 +7,8 @@ export function SessionChip({ s }: { s: Session }) {
     <Link to={`/session/${s.id}`} className="session-chip">
       <b>{time(s.startsAt)}</b>
       <span>
-        {s.format}
-        {s.language !== 'RU' ? ` · ${s.language}` : ''}
+        {s.format === 'Dolby Atmos' ? 'ATMOS' : s.format} · {s.language}
+        {s.subtitles ? ' sub' : ''}
       </span>
       <small>от {currency(s.prices.standard)}</small>
     </Link>

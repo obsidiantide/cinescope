@@ -2,10 +2,11 @@
  * Мок-API. Все функции асинхронные и возвращают те же формы данных, что вернул бы
  * настоящий бэкенд, — чтобы позже заменить реализацию на fetch() без правок в UI.
  */
-import type { Hall, Movie, Order, Session, Ticket } from '../types'
+import type { Cinema, Hall, Language, Movie, Order, Session, Ticket } from '../types'
 import { movies, getMovieById } from '../data/movies'
 import { getHallById, hallSeats } from '../data/halls'
 import { buildSchedule } from '../data/sessions'
+import { cinemas, getCinemaById } from '../data/cinemas'
 import { hashString, seeded } from '../lib/random'
 
 const ORDERS_KEY = 'cinescope.orders.v1'
@@ -39,26 +40,41 @@ export async function getMovie(id: string): Promise<Movie | undefined> {
   return getMovieById(id)
 }
 
-export async function listSessions(filter: { movieId?: string; date?: string } = {}): Promise<Session[]> {
+export interface SessionFilter {
+  movieId?: string
+  date?: string
+  cinemaId?: string
+  language?: Language
+}
+
+export async function listSessions(filter: SessionFilter = {}): Promise<Session[]> {
   await delay(150)
   const now = Date.now() - 15 * 60 * 1000 // продажа закрывается через 15 мин после начала
   return getSchedule().filter(
     (s) =>
       new Date(s.startsAt).getTime() > now &&
       (!filter.movieId || s.movieId === filter.movieId) &&
-      (!filter.date || s.id.startsWith(filter.date)),
+      (!filter.date || s.id.startsWith(filter.date)) &&
+      (!filter.cinemaId || s.cinemaId === filter.cinemaId) &&
+      (!filter.language || s.language === filter.language),
   )
+}
+
+export async function listCinemas(): Promise<Cinema[]> {
+  await delay(80)
+  return cinemas
 }
 
 export async function getSession(
   id: string,
-): Promise<{ session: Session; movie: Movie; hall: Hall } | undefined> {
+): Promise<{ session: Session; movie: Movie; hall: Hall; cinema: Cinema } | undefined> {
   await delay(120)
   const session = getSchedule().find((s) => s.id === id)
   if (!session) return undefined
   const movie = getMovieById(session.movieId)!
   const hall = getHallById(session.hallId)!
-  return { session, movie, hall }
+  const cinema = getCinemaById(session.cinemaId)!
+  return { session, movie, hall, cinema }
 }
 
 /** Занятые места: детерминированная «толпа» + реально купленные в этом браузере билеты. */
@@ -93,7 +109,10 @@ export interface PaymentInput {
   seatIds: string[]
   name: string
   email: string
+  phone: string
+  method: 'card' | 'club'
   card: { number: string; expiry: string; cvc: string }
+  clubCard?: string
 }
 
 export class PaymentError extends Error {}
@@ -106,9 +125,15 @@ export async function purchase(input: PaymentInput): Promise<Order> {
   const occupied = await getOccupiedSeats(input.sessionId)
   const conflict = input.seatIds.find((id) => occupied.has(id))
   if (conflict) throw new PaymentError(`Место ${conflict} уже занято — выберите другое`)
-  const digits = input.card.number.replace(/\D/g, '')
-  if (!luhn(digits)) throw new PaymentError('Неверный номер карты')
-  if (digits.endsWith('0000')) throw new PaymentError('Банк отклонил платёж (тестовая карта с отказом)')
+  let digits: string
+  if (input.method === 'club') {
+    digits = (input.clubCard ?? '').replace(/\D/g, '')
+    if (digits.length !== 10) throw new PaymentError('Номер клубной карты — 10 цифр')
+  } else {
+    digits = input.card.number.replace(/\D/g, '')
+    if (!luhn(digits)) throw new PaymentError('Неверный номер карты')
+    if (digits.endsWith('0000')) throw new PaymentError('Банк отклонил платёж (тестовая карта с отказом)')
+  }
 
   const byId = new Map(hallSeats(data.hall).map((s) => [s.id, s]))
   const tickets: Ticket[] = input.seatIds.map((id) => {
@@ -122,6 +147,8 @@ export async function purchase(input: PaymentInput): Promise<Order> {
     createdAt: new Date().toISOString(),
     email: input.email,
     name: input.name,
+    phone: input.phone,
+    method: input.method,
     tickets,
     total: tickets.reduce((a, t) => a + t.price, 0),
     cardLast4: digits.slice(-4),

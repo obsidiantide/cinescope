@@ -8,6 +8,9 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { OrderPage } from './pages/OrderPage'
 import { TicketsPage } from './pages/TicketsPage'
 import { NotFound } from './pages/NotFound'
+import { SchedulePage } from './pages/SchedulePage'
+import { CinemasPage } from './pages/CinemasPage'
+import { PromoPage } from './pages/PromoPage'
 
 // Three.js тяжёлый — грузим схему зала отдельным чанком
 const SeatsPage = lazy(() => import('./pages/SeatsPage'))
@@ -19,6 +22,9 @@ export function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="soon" element={<SoonPage />} />
+          <Route path="schedule" element={<SchedulePage />} />
+          <Route path="cinemas" element={<CinemasPage />} />
+          <Route path="promo" element={<PromoPage />} />
           <Route path="movie/:id" element={<MoviePage />} />
           <Route
             path="session/:id"

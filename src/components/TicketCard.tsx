@@ -1,14 +1,14 @@
 import { QRCodeSVG } from 'qrcode.react'
-import type { Hall, Movie, Order, Session } from '../types'
+import type { Cinema, Hall, Movie, Order, Session } from '../types'
 import { currency, dateLong, seatTypeLabel, time } from '../lib/format'
 
-export function TicketCard({ order, movie, session, hall }: { order: Order; movie: Movie; session: Session; hall: Hall }) {
+export function TicketCard({ order, movie, session, hall, cinema }: { order: Order; movie: Movie; session: Session; hall: Hall; cinema?: Cinema }) {
   return (
     <div className={`tickets ${order.status === 'refunded' ? 'refunded' : ''}`}>
       {order.tickets.map((t) => (
         <article key={t.seatId} className="ticket" style={{ ['--c1' as string]: movie.palette[1] }}>
           <div className="ticket-main">
-            <span className="eyebrow">CineScope · {hall.name}</span>
+            <span className="eyebrow">{cinema?.name ?? 'CineScope'} · {hall.name}</span>
             <h3>{movie.title}</h3>
             <p>
               {dateLong(session.startsAt)}, <b>{time(session.startsAt)}</b>

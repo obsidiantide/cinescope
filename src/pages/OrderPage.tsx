@@ -23,7 +23,7 @@ export function OrderPage() {
         <div>
           <h2>Оплата прошла, приятного просмотра!</h2>
           <p className="muted">
-            Заказ {order.id} · {currency(order.total)} · карта •••• {order.cardLast4}. Билеты отправлены на {order.email}.
+            Заказ {order.id} · {currency(order.total)} · {order.method === 'club' ? 'клубная карта' : 'карта'} •••• {order.cardLast4}. Билеты отправлены на {order.email}.
           </p>
         </div>
       </div>

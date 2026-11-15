@@ -1,4 +1,4 @@
-import type { Session } from '../types'
+import type { Language, Session } from '../types'
 import { movies } from './movies'
 import { halls } from './halls'
 import { dateKey } from '../lib/format'
@@ -12,8 +12,9 @@ const BASE_PRICES = {
 } as const
 
 const SLOTS = ['10:20', '12:40', '15:10', '17:30', '19:50', '22:15']
+const LANGS: Language[] = ['AZ', 'AZ', 'RU', 'RU', 'EN', 'TR']
 
-/** Генерирует расписание на 7 дней вперёд от сегодняшней даты (детерминированно по дате). */
+/** Генерирует расписание всех кинотеатров на 7 дней вперёд (детерминированно по дате). */
 export function buildSchedule(days = 7): Session[] {
   const out: Session[] = []
   const now = new Date()
@@ -26,17 +27,20 @@ export function buildSchedule(days = 7): Session[] {
       SLOTS.forEach((slot, si) => {
         const movie = showing[Math.floor(rnd() * showing.length + hi + si) % showing.length]
         const [h, m] = slot.split(':').map(Number)
-        const startsAt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m + hi * 5)
+        const startsAt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m + (hi % 4) * 5)
         const format = hall.format === '2D' && rnd() > 0.5 ? '3D' : hall.format
         const evening = h >= 18 ? 1.2 : 1
         const base = BASE_PRICES[format]
+        const language = LANGS[Math.floor(rnd() * LANGS.length)]
         out.push({
           id: `${key}_${hall.id}_${slot.replace(':', '')}`,
           movieId: movie.id,
+          cinemaId: hall.cinemaId,
           hallId: hall.id,
           startsAt: startsAt.toISOString(),
           format,
-          language: rnd() > 0.8 ? 'EN' : rnd() > 0.85 ? 'AZ' : 'RU',
+          language,
+          subtitles: language === 'EN' || language === 'TR' ? 'AZ' : undefined,
           prices: {
             standard: Math.round(base.standard * evening),
             vip: Math.round(base.vip * evening),
