@@ -67,7 +67,7 @@ export default function SeatsPage() {
             {focusSeat ? (
               <>
                 <span className="pill">
-                  Вид с места {seatsById.get(focusSeat)?.row}-{seatsById.get(focusSeat)?.number} · тяните, чтобы осмотреться
+                  Ряд {seatsById.get(focusSeat)?.row}, место {seatsById.get(focusSeat)?.number} · так вы увидите экран, тяните, чтобы осмотреться
                 </span>
                 <button className="btn small" onClick={() => setFocusSeat(null)}>
                   ← Вернуться к залу
@@ -82,7 +82,7 @@ export default function SeatsPage() {
             )}
           </div>
           <div className="stage-hint">
-            Клик — выбрать место · двойной клик — вид с места · тяните — вращение · колесо — масштаб
+            Клик по месту — выбрать и посмотреть вид на экран · тяните — вращение · колесо — масштаб
           </div>
         </div>
 

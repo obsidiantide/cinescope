@@ -27,7 +27,8 @@ export const useBooking = create<BookingState>((set, get) => ({
     set((s) => {
       if (s.selected.includes(id)) return { selected: s.selected.filter((x) => x !== id), focusSeat: s.focusSeat === id ? null : s.focusSeat }
       if (s.selected.length >= MAX_SEATS) return s
-      return { selected: [...s.selected, id] }
+      // выбранное место сразу показываем «глазами зрителя»
+      return { selected: [...s.selected, id], focusSeat: id, hovered: null }
     }),
   remove: (id) => set((s) => ({ selected: s.selected.filter((x) => x !== id), focusSeat: s.focusSeat === id ? null : s.focusSeat })),
   clear: () => set({ selected: [], focusSeat: null }),

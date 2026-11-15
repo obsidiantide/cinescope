@@ -126,7 +126,6 @@ function Scene({
   const focusSeat = useBooking((s) => s.focusSeat)
   const toggle = useBooking((s) => s.toggle)
   const setHovered = useBooking((s) => s.setHovered)
-  const setFocusSeat = useBooking((s) => s.setFocusSeat)
   const controls = useRef<OrbitControlsImpl>(null)
 
 
@@ -160,7 +159,6 @@ function Scene({
             hovered={hovered === seat.id}
             onHover={setHovered}
             onToggle={toggle}
-            onLook={setFocusSeat}
           />
         )
       })}
@@ -278,7 +276,17 @@ function CameraRig({
   controls: React.RefObject<OrbitControlsImpl | null>
 }) {
   const { camera, size } = useThree()
-  const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3; seat: boolean } | null>(null)
+  const goal = useRef<{
+    pos: THREE.Vector3
+    target: THREE.Vector3
+    flightTarget: THREE.Vector3
+    fromPos: THREE.Vector3
+    fromTarget: THREE.Vector3
+    arc: number
+    duration: number
+    t: number
+    seat: boolean
+  } | null>(null)
   const pending = useRef(true)
 
   // Ref на OrbitControls появляется не сразу, поэтому сам расчёт цели делаем в useFrame
@@ -287,7 +295,8 @@ function CameraRig({
   }, [view, focusSeat, layout])
 
   const plan = (c: OrbitControlsImpl) => {
-    const screenCenter = new THREE.Vector3(0, layout.screen.y, layout.screen.z)
+    // взгляд чуть ниже центра экрана — в кадр попадают ряды впереди, как в реальном зале
+    const screenCenter = new THREE.Vector3(0, layout.screen.y - layout.screen.height * 0.18, layout.screen.z)
     const mid = layout.depth / 2
     const lastY = layout.rows[layout.rows.length - 1].y
     let pos: THREE.Vector3
@@ -319,7 +328,25 @@ function CameraRig({
     c.minAzimuthAngle = -Infinity
     c.maxAzimuthAngle = Infinity
     c.enabled = false
-    goal.current = { pos, target, seat }
+    // Если сейчас смотрим «с места», цель контролов стоит вплотную к глазам —
+    // переносим её дальше по тому же направлению взгляда, чтобы перелёт шёл плавно.
+    const dirNow = c.target.clone().sub(camera.position)
+    const fromTarget = dirNow.length() < 1 ? camera.position.clone().add(dirNow.normalize().multiplyScalar(12)) : c.target.clone()
+    // Во время перелёта в кресло смотрим на центр экрана; в конце подменяем цель на точку
+    // перед глазами в том же направлении — картинка не дёргается.
+    const flightTarget = seat ? screenCenter.clone() : target.clone()
+    const dist = camera.position.distanceTo(pos)
+    goal.current = {
+      pos,
+      target,
+      flightTarget,
+      fromPos: camera.position.clone(),
+      fromTarget,
+      arc: Math.min(3.5, dist * 0.22),
+      duration: THREE.MathUtils.clamp(0.9 + dist * 0.06, 1.1, 2.2),
+      t: 0,
+      seat,
+    }
   }
 
   useFrame((_, dt) => {
@@ -331,11 +358,14 @@ function CameraRig({
     }
     const g = goal.current
     if (!g) return
-    const k = 1 - Math.exp(-dt * 3.2)
-    camera.position.lerp(g.pos, k)
-    c.target.lerp(g.target, k)
+    g.t = Math.min(1, g.t + Math.min(dt, 0.05) / g.duration)
+    // easeInOutCubic + дуга вверх: камера «взлетает» над рядами и мягко садится
+    const e = g.t < 0.5 ? 4 * g.t ** 3 : 1 - (-2 * g.t + 2) ** 3 / 2
+    camera.position.lerpVectors(g.fromPos, g.pos, e)
+    camera.position.y += Math.sin(Math.PI * e) * g.arc
+    c.target.lerpVectors(g.fromTarget, g.flightTarget, Math.min(1, e * 1.15))
     c.update()
-    if (camera.position.distanceTo(g.pos) < 0.02 && c.target.distanceTo(g.target) < 0.02) {
+    if (g.t >= 1) {
       camera.position.copy(g.pos)
       c.target.copy(g.target)
       c.enabled = true

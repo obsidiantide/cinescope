@@ -52,10 +52,9 @@ interface Props {
   hovered: boolean
   onHover: (id: string | null) => void
   onToggle: (id: string) => void
-  onLook: (id: string) => void
 }
 
-function SeatImpl({ seat, state, hovered, onHover, onToggle, onLook }: Props) {
+function SeatImpl({ seat, state, hovered, onHover, onToggle }: Props) {
   const group = useRef<THREE.Group>(null)
   const marker = useRef<THREE.Mesh>(null)
   const w = seat.width
@@ -105,10 +104,6 @@ function SeatImpl({ seat, state, hovered, onHover, onToggle, onLook }: Props) {
           e.stopPropagation()
           if (e.delta > 6) return // это было вращение камеры, а не клик
           onToggle(seat.id)
-        },
-        onDoubleClick: (e: ThreeEvent<MouseEvent>) => {
-          e.stopPropagation()
-          onLook(seat.id)
         },
       }
     : {
